@@ -1,47 +1,45 @@
-import { createClient } from 'redis';
-import { promisify } from 'util';
+// Import the Redis client library and the promisify utility for converting callback-based functions to promises
+const redis = require('redis');
+const { promisify } = require('util');
 
+// Define a class to encapsulate Redis client operations
 class RedisClient {
   constructor() {
-    // Initialize the Redis client
-    this.client = createClient();
+    // Initialize the Redis client instance
+    this.client = redis.createClient();
+
+    // Promisify the `get` method of the Redis client to use async/await syntax
+    this.getAsync = promisify(this.client.get).bind(this.client);
+
+    // Set up an event listener to handle Redis connection errors
     this.client.on('error', (error) => {
-      console.log(`Redis client not connected to server: ${error}`);
+      console.log(`Redis client not connected to the server: ${error.message}`);
     });
   }
 
-  // Method to check if Redis is alive
+  // Check if the Redis client is connected to the server
   isAlive() {
-    // Check connection status using a command like 'ping'
-    return new Promise((resolve, reject) => {
-      this.client.ping((err, res) => {
-        if (err) reject(err);
-        resolve(res === 'PONG'); // 'PONG' response means Redis is alive
-      });
-    });
+    return this.client.connected; // Returns true if the client is connected
   }
 
-  // Promisified get method
+  // Retrieve the value associated with a given key from Redis
   async get(key) {
-    const redisGet = promisify(this.client.get).bind(this.client);
-    const value = await redisGet(key);
-    return value;
+    return this.getAsync(key); // Use the promisified `get` method
   }
 
-  // Promisified set method with expiration
-  async set(key, value, time) {
-    const redisSet = promisify(this.client.set).bind(this.client);
-    await redisSet(key, value);
-    await this.client.expire(key, time);
+  // Set a key-value pair in Redis with an expiration time (in seconds)
+  async set(key, value, duration) {
+    this.client.setex(key, duration, value); // Use the `setex` method to set a key with expiration
   }
 
-  // Promisified delete method
+  // Delete a key from Redis
   async del(key) {
-    const redisDel = promisify(this.client.del).bind(this.client);
-    await redisDel(key);
+    this.client.del(key); // Use the `del` method to remove a key
   }
 }
 
+// Create an instance of the RedisClient class
 const redisClient = new RedisClient();
 
-module.exports = redisClient;
+// Export the instance for use in other parts of the application
+export default redisClient;
