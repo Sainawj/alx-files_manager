@@ -1,43 +1,57 @@
+// Import the MongoClient class from the mongodb package
 import { MongoClient } from 'mongodb';
 
-const HOST = process.env.DB_HOST || 'localhost';
-const PORT = process.env.DB_PORT || 27017;
-const DATABASE = process.env.DB_DATABASE || 'files_manager';
-const url = `mongodb://${HOST}:${PORT}`;
+// Retrieve database configuration values from environment variables, 
+// with default fallbacks if not provided
+const host = process.env.DB_HOST || 'localhost'; // Default to 'localhost'
+const port = process.env.DB_PORT || 27017; // Default to MongoDB's default port (27017)
+const database = process.env.DB_DATABASE || 'files_manager'; // Default to 'files_manager' database
+const url = `mongodb://${host}:${port}/`; // Construct the MongoDB connection URL
 
+// Define the DBClient class to handle database operations
 class DBClient {
   constructor() {
-    this.client = new MongoClient(url, { useUnifiedTopology: true, useNewUrlParser: true });
+    this.db = null; // Initialize the database connection property to null
 
-    this.client.connect()
-      .then(() => {
-        this.db = this.client.db(DATABASE);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
+    // Connect to the MongoDB server
+    MongoClient.connect(url, { useUnifiedTopology: true }, (error, client) => {
+      if (error) console.log(error); // Log connection errors if any
+
+      // Set the database connection to the specified database
+      this.db = client.db(database);
+
+      // Ensure 'users' and 'files' collections exist by creating them
+      this.db.createCollection('users');
+      this.db.createCollection('files');
+    });
   }
 
-  // Check connection status
+  // Check if the database connection is established
   isAlive() {
-    return this.client.topology.isConnected(); // Check if MongoDB is connected
+    return !!this.db; // Returns true if this.db is not null or undefined
   }
 
-  // Get number of users from MongoDB
+  // Get the total number of documents in the 'users' collection
   async nbUsers() {
-    const users = this.db.collection('users');
-    const usersNum = await users.countDocuments();
-    return usersNum;
+    return this.db.collection('users').countDocuments(); // Count documents in 'users'
   }
 
-  // Get number of files from MongoDB
+  // Retrieve a single user document from the 'users' collection based on a query
+  async getUser(query) {
+    console.log('QUERY IN DB.JS', query); // Log the query being executed
+    const user = await this.db.collection('users').findOne(query); // Fetch a user matching the query
+    console.log('GET USER IN DB.JS', user); // Log the retrieved user
+    return user; // Return the user document
+  }
+
+  // Get the total number of documents in the 'files' collection
   async nbFiles() {
-    const files = this.db.collection('files');
-    const filesNum = await files.countDocuments();
-    return filesNum;
+    return this.db.collection('files').countDocuments(); // Count documents in 'files'
   }
 }
 
+// Create an instance of the DBClient class
 const dbClient = new DBClient();
 
-module.exports = dbClient;
+// Export the instance for use in other parts of the application
+export default dbClient;
