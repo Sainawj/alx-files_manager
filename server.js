@@ -1,21 +1,18 @@
-// server.js
-import express from 'express'; // Import the express library
-import router from './routes/index.js'; // Import routes from the 'routes' directory
+import express from 'express';
+import router from './routes/index.js'; // Import router
 
-// Set the port from environment variable or default to 5000
 const port = process.env.PORT || 5000;
+const app = express();
 
-const app = express(); // Initialize express app
-
-// Use JSON middleware for parsing JSON requests
+// Middleware to parse JSON bodies
 app.use(express.json());
 
-// Use the router for handling all routes from '/routes/index.js'
+// Use the imported router
 app.use('/', router);
 
-// Start the server and listen on the specified port
+// Start the Express server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-export default app; // Export the app for possible testing
+export default app; // Export for possible testing
