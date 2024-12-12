@@ -4,17 +4,17 @@ import { createHash } from 'crypto';
 class UsersController {
   // POST /users
   static async postNew(req, res) {
-    const { email, password } = req.body;
-
-    // Validate input
-    if (!email) {
-      return res.status(400).json({ error: 'Missing email' });
-    }
-    if (!password) {
-      return res.status(400).json({ error: 'Missing password' });
-    }
-
     try {
+      const { email, password } = req.body;
+
+      // Validate input
+      if (!email) {
+        return res.status(400).json({ error: 'Missing email' });
+      }
+      if (!password) {
+        return res.status(400).json({ error: 'Missing password' });
+      }
+
       const usersCollection = dbClient.db.collection('users');
 
       // Check if user already exists
@@ -33,9 +33,9 @@ class UsersController {
       });
 
       // Return the new user details
-      return res.status(201).json({ id: result.insertedId, email });
+      return res.status(201).json({ id: result.insertedId.toString(), email });
     } catch (error) {
-      console.error(error);
+      console.error('Error in UsersController.postNew:', error);
       return res.status(500).json({ error: 'Internal server error' });
     }
   }
