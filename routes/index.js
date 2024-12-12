@@ -1,14 +1,12 @@
-// index.js
 import { Router } from 'express';
-import AppController from '../controllers/AppController';
-import UsersController from '../controllers/UsersController';
-import AuthController from '../controllers/AuthController';
-import FilesController from '../controllers/FilesController';
+import AppController from '../controllers/AppController.js';
+import UsersController from '../controllers/UsersController.js';
+import AuthController from '../controllers/AuthController.js';
+import FilesController from '../controllers/FilesController.js';
 
-// Create a new router instance
 const router = Router();
 
-// Define routes for different endpoints
+// Define your API routes
 router.get('/status', AppController.getStatus);
 router.get('/stats', AppController.getStats);
 router.post('/users', UsersController.postNew);
@@ -22,5 +20,4 @@ router.put('/files/:id/publish', FilesController.putPublish);
 router.put('/files/:id/unpublish', FilesController.putUnpublish);
 router.get('/files/:id/data', FilesController.getFile);
 
-// Export the router using ES6 syntax
 export default router;
