@@ -1,57 +1,57 @@
-// Import the MongoClient class from the mongodb package
-import { MongoClient } from 'mongodb';
+import { MongoClient } from 'mongodb';  // Import MongoClient from MongoDB to interact with the database
 
-// Retrieve database configuration values from environment variables, 
-// with default fallbacks if not provided
-const host = process.env.DB_HOST || 'localhost'; // Default to 'localhost'
-const port = process.env.DB_PORT || 27017; // Default to MongoDB's default port (27017)
-const database = process.env.DB_DATABASE || 'files_manager'; // Default to 'files_manager' database
-const url = `mongodb://${host}:${port}/`; // Construct the MongoDB connection URL
-
-// Define the DBClient class to handle database operations
 class DBClient {
   constructor() {
-    this.db = null; // Initialize the database connection property to null
+    // Set default values for database connection if environment variables are not provided
+    const {
+      DB_HOST = 'localhost',  // Default host is localhost
+      DB_PORT = 27017,        // Default port is 27017 (MongoDB default)
+      DB_DATABASE = 'files_manager', // Default database is 'files_manager'
+    } = process.env;
 
-    // Connect to the MongoDB server
-    MongoClient.connect(url, { useUnifiedTopology: true }, (error, client) => {
-      if (error) console.log(error); // Log connection errors if any
+    // Initialize the class properties for database connection
+    this.host = DB_HOST;
+    this.port = DB_PORT;
+    this.database = DB_DATABASE;
 
-      // Set the database connection to the specified database
-      this.db = client.db(database);
+    // Create a connection URL using the provided or default database host, port, and name
+    const url = `mongodb://${this.host}:${this.port}/${this.database}`;
 
-      // Ensure 'users' and 'files' collections exist by creating them
-      this.db.createCollection('users');
-      this.db.createCollection('files');
+    // Connect to MongoDB using the connection URL
+    MongoClient.connect(url, { useUnifiedTopology: true }, (err, client) => {
+      if (err) {
+        // If connection fails, log the error
+        console.error(`DB Connection Error: ${err}`);
+        return;
+      }
+      // If the connection is successful, assign the database client to this.db
+      this.db = client.db(this.database);
     });
   }
 
-  // Check if the database connection is established
+  // Method to check if the database connection is alive (initialized correctly)
   isAlive() {
-    return !!this.db; // Returns true if this.db is not null or undefined
+    return !!this.db;  // Returns true if the database client is defined and connected
   }
 
-  // Get the total number of documents in the 'users' collection
+  // Method to get the number of users in the 'users' collection
   async nbUsers() {
-    return this.db.collection('users').countDocuments(); // Count documents in 'users'
+    if (!this.isAlive()) return 0;  // If database connection is not alive, return 0
+
+    // Count and return the number of documents (users) in the 'users' collection
+    return this.db.collection('users').countDocuments();
   }
 
-  // Retrieve a single user document from the 'users' collection based on a query
-  async getUser(query) {
-    console.log('QUERY IN DB.JS', query); // Log the query being executed
-    const user = await this.db.collection('users').findOne(query); // Fetch a user matching the query
-    console.log('GET USER IN DB.JS', user); // Log the retrieved user
-    return user; // Return the user document
-  }
-
-  // Get the total number of documents in the 'files' collection
+  // Method to get the number of files in the 'files' collection
   async nbFiles() {
-    return this.db.collection('files').countDocuments(); // Count documents in 'files'
+    if (!this.isAlive()) return 0;  // If database connection is not alive, return 0
+
+    // Count and return the number of documents (files) in the 'files' collection
+    return this.db.collection('files').countDocuments();
   }
 }
 
-// Create an instance of the DBClient class
+// Instantiate the DBClient class and export the instance
 const dbClient = new DBClient();
 
-// Export the instance for use in other parts of the application
 export default dbClient;

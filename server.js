@@ -1,26 +1,16 @@
-// Import the express library for creating the web server
-import express from 'express';
+import express from 'express';  // Import the Express framework
+import routes from './routes';   // Import the routes module for handling various endpoints
 
-// Import the routing configuration (controllerRouting) for defining application routes
-import controllerRouting from './routes/index';
+const app = express();  // Create an Express application instance
+const PORT = process.env.PORT || 5000;  // Set the port from environment variable or default to 5000
 
-// Initialize an express application instance
-const app = express();
-
-// Set the port from the environment variable or default to 5000 if not set
-const port = process.env.PORT || 5000;
-
-// Middleware to parse incoming JSON requests
+// Middleware to parse incoming requests with JSON payloads
 app.use(express.json());
 
-// Set up the routing by passing the express app to the controllerRouting function
-controllerRouting(app);
+// Load the routes, setting the base path as '/'
+app.use('/', routes);
 
-// Start the server on the specified port and log a message when the server is running
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+// Start the server and listen for incoming requests on the specified port
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);  // Log a message when the server starts successfully
 });
-
-// Export the app instance for testing or other purposes
-export default app;
-

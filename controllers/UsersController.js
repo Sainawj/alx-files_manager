@@ -1,86 +1,87 @@
-import sha1 from 'sha1';
-import { ObjectId } from 'mongodb';
-import dbClient from '../utils/db';
-import redisClient from '../utils/redis';
+import sha1 from 'sha1';  // Importing the sha1 hashing library to hash the password
+import redisClient from '../utils/redis';  // Importing the Redis client for handling user session and token storage
+import dbClient from '../utils/db';  // Importing the database client to interact with the MongoDB database
 
-// Controller to manage user-related actions, such as creating a new user and retrieving user details
+const { userQueue } = require('../worker');  // Importing the userQueue for background jobs related to user processing
+
 class UsersController {
-  // Method to create a new user
-  static async postNew(request, response) {
-    // Extract email and password from the request body
-    const { email, password } = request.body;
-
-    // Check if email is missing, respond with an error if true
-    if (!email) {
-      response.status(400).json({ error: 'Missing email' });
-    }
-
-    // Check if password is missing, respond with an error if true
-    if (!password) {
-      response.status(400).json({ error: 'Missing password' });
-    }
-
-    // Hash the password using SHA-1 for storage
-    const hashPwd = sha1(password);
-
+  // Method to handle new user creation
+  static async postNew(req, res) {
     try {
-      // Access the 'users' collection in the database
-      const collection = dbClient.db.collection('users');
+      // Extract email and password from the request body
+      const { email, password } = req.body;
 
-      // Check if a user with the same email already exists
-      const user1 = await collection.findOne({ email });
-
-      if (user1) {
-        // Respond with an error if the user already exists
-        response.status(400).json({ error: 'Already exist' });
-      } else {
-        // Insert a new user record into the database
-        collection.insertOne({ email, password: hashPwd });
-
-        // Retrieve the newly created user's email and ID
-        const newUser = await collection.findOne(
-          { email },
-          { projection: { email: 1 } }
-        );
-
-        // Respond with the new user's ID and email
-        response.status(201).json({ id: newUser._id, email: newUser.email });
+      // Check if email is provided in the request body
+      if (!email) {
+        return res.status(400).json({ error: 'Missing email' });  // Return an error if email is missing
       }
+
+      // Check if password is provided in the request body
+      if (!password) {
+        return res.status(400).json({ error: 'Missing password' });  // Return an error if password is missing
+      }
+
+      // Check if a user with the given email already exists in the database
+      const userExists = await dbClient.db.collection('users').findOne({ email });
+
+      // If user already exists, return an error
+      if (userExists) {
+        return res.status(400).json({ error: 'Already exists' });
+      }
+
+      // Hash the password using sha1 (note: it's recommended to use bcrypt for better security)
+      const hashedPassword = sha1(password);
+
+      // Create a new user object with the provided email and hashed password
+      const newUser = {
+        email,
+        password: hashedPassword,
+      };
+
+      // Insert the new user into the database
+      const result = await dbClient.db.collection('users').insertOne(newUser);
+      const { _id } = result.ops[0];  // Get the newly inserted user's ID
+
+      // Add a background job to the userQueue for additional processing related to the user (e.g., sending a welcome email)
+      await userQueue.add({ userId: _id });
+
+      // Return a success response with the newly created user's ID and email
+      return res.status(201).json({ id: _id, email });
     } catch (error) {
-      // Log any server errors and respond with a generic server error message
-      console.log(error);
-      response.status(500).json({ error: 'Server error' });
+      console.error(error);  // Log any errors that occur
+      return res.status(500).json({ error: 'Internal Server Error' });  // Return a generic server error
     }
   }
 
-  // Method to retrieve user details based on the authentication token
-  static async getMe(request, response) {
+  // Method to retrieve the current user's information
+  static async getMe(req, res) {
     try {
-      // Extract the authentication token from the request headers
-      const userToken = request.header('X-Token');
+      // Extract the token from the request headers
+      const { token } = req.headers;
 
-      // Construct the Redis key for authentication
-      const authKey = `auth_${userToken}`;
+      // Use the token to get the user ID from Redis (token-based authentication)
+      const userId = await redisClient.get(`auth_${token}`);
 
-      // Retrieve the user ID associated with the token from Redis
-      const userID = await redisClient.get(authKey);
-
-      if (!userID) {
-        // Respond with an error if the user is not authenticated
-        response.status(401).json({ error: 'Unauthorized' });
+      // If the user ID is not found in Redis, the user is not authenticated
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });  // Return an unauthorized error if token is invalid
       }
 
-      // Fetch user details from the database using the retrieved user ID
-      const user = await dbClient.getUser({ _id: ObjectId(userID) });
+      // Retrieve the user from the database using the user ID
+      const user = await dbClient.db.collection('users').findOne({ _id: userId });
 
-      // Respond with the user's ID and email
-      response.json({ id: user._id, email: user.email });
+      // If the user doesn't exist in the database, return an unauthorized error
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Return the user's details (ID and email) in the response
+      return res.status(200).json({ id: user._id, email: user.email });
     } catch (error) {
-      // Log any server errors and respond with a generic server error message
-      console.log(error);
-      response.status(500).json({ error: 'Server error' });
+      console.error(error);  // Log any errors that occur
+      return res.status(500).json({ error: 'Internal Server Error' });  // Return a generic server error
     }
   }
 }
 
-export default UsersController;
+export default UsersController;  // Export the UsersController class so it can be used in other parts of the application

@@ -1,68 +1,60 @@
-import Queue from 'bull'; // Import the Bull queue for job processing
-import imageThumbnail from 'image-thumbnail'; // Import the image-thumbnail library to create thumbnails
-import { promises as fs } from 'fs'; // Import fs.promises for file system operations (async/await)
-import { ObjectID } from 'mongodb'; // Import ObjectID to work with MongoDB's unique identifiers
-import dbClient from './utils/db'; // Import the database client to interact with MongoDB
+const Queue = require('bull');  // Import the Bull queue library for job management
+const imageThumbnail = require('image-thumbnail');  // Import the image-thumbnail package for generating image thumbnails
+const dbClient = require('./utils/db');  // Import the database client to interact with the database
 
-// Create two queues for file and user job processing
-const fileQueue = new Queue('fileQueue', 'redis://127.0.0.1:6379'); 
-const userQueue = new Queue('userQueue', 'redis://127.0.0.1:6379');
+// Initialize a new queue for file processing tasks
+const fileQueue = new Queue('fileQueue');
 
-// Function to generate a thumbnail of an image with a specified width
-async function thumbNail(width, localPath) {
-  const thumbnail = await imageThumbnail(localPath, { width }); // Generate thumbnail using the image-thumbnail library
-  return thumbnail; // Return the generated thumbnail
-}
+// Process the tasks in the file queue
+fileQueue.process(async (job) => {
+  const { userId, fileId } = job.data;  // Extract userId and fileId from the job data
 
-// Process jobs in the fileQueue
-fileQueue.process(async (job, done) => {
-  console.log('Processing...'); // Log that job processing has started
-  const { fileId } = job.data; // Extract fileId from the job data
+  // Validate that fileId and userId are provided
   if (!fileId) {
-    done(new Error('Missing fileId')); // Handle error if fileId is missing
+    throw new Error('Missing fileId');
   }
-
-  const { userId } = job.data; // Extract userId from the job data
   if (!userId) {
-    done(new Error('Missing userId')); // Handle error if userId is missing
+    throw new Error('Missing userId');
   }
 
-  console.log(fileId, userId); // Log the fileId and userId for debugging
-  const files = dbClient.db.collection('files'); // Access the 'files' collection in MongoDB
-  const idObject = new ObjectID(fileId); // Convert fileId to an ObjectID
-  files.findOne({ _id: idObject }, async (err, file) => { // Find the file in the database
-    if (!file) {
-      console.log('Not found'); // Log if the file was not found in the database
-      done(new Error('File not found')); // Handle error if file not found
-    } else {
-      const fileName = file.localPath; // Get the file's local path
-      const thumbnail500 = await thumbNail(500, fileName); // Generate 500px thumbnail
-      const thumbnail250 = await thumbNail(250, fileName); // Generate 250px thumbnail
-      const thumbnail100 = await thumbNail(100, fileName); // Generate 100px thumbnail
-
-      console.log('Writing files to system'); // Log the process of writing thumbnails to the file system
-      const image500 = `${file.localPath}_500`; // Define the file path for the 500px thumbnail
-      const image250 = `${file.localPath}_250`; // Define the file path for the 250px thumbnail
-      const image100 = `${file.localPath}_100`; // Define the file path for the 100px thumbnail
-
-      await fs.writeFile(image500, thumbnail500); // Write the 500px thumbnail to the system
-      await fs.writeFile(image250, thumbnail250); // Write the 250px thumbnail to the system
-      await fs.writeFile(image100, thumbnail100); // Write the 100px thumbnail to the system
-      done(); // Mark the job as complete
-    }
-  });
-});
-
-// Process jobs in the userQueue
-userQueue.process(async (job, done) => {
-  const { userId } = job.data; // Extract userId from the job data
-  if (!userId) done(new Error('Missing userId')); // Handle error if userId is missing
-  const users = dbClient.db.collection('users'); // Access the 'users' collection in MongoDB
-  const idObject = new ObjectID(userId); // Convert userId to an ObjectID
-  const user = await users.findOne({ _id: idObject }); // Find the user in the database
-  if (user) {
-    console.log(`Welcome ${user.email}!`); // Log the user's email if found
-  } else {
-    done(new Error('User not found')); // Handle error if the user is not found
+  // Fetch the file document from the database to check if it exists for the given user
+  const fileDocument = await dbClient.db.collection('files').findOne({ _id: fileId, userId });
+  if (!fileDocument) {
+    throw new Error('File not found');
   }
+
+  // Generate a thumbnail of the image with a width of 500 pixels
+  const options = { width: 500 };
+  const thumbnail500 = await imageThumbnail(fileDocument.localPath, options);
+
+  // Return the generated thumbnail (other thumbnails can be added as needed)
+  return { thumbnail500 /* other thumbnails */ };
 });
+
+// Initialize a new queue for user-related tasks
+const userQueue = new Queue('userQueue');
+
+// Process the tasks in the user queue
+userQueue.process(async (job) => {
+  const { userId } = job.data;  // Extract userId from the job data
+
+  // Validate that userId is provided
+  if (!userId) {
+    throw new Error('Missing userId');
+  }
+
+  // Fetch the user document from the database to check if the user exists
+  const userDocument = await dbClient.db.collection('users').findOne({ _id: userId });
+  if (!userDocument) {
+    throw new Error('User not found');
+  }
+
+  // Log a welcome message for the user
+  console.log(`Welcome ${userDocument.email}!`);
+
+  // Return the userId as part of the job result
+  return { userId };
+});
+
+// Export the queues to be used in other parts of the application
+module.exports = { fileQueue, userQueue };

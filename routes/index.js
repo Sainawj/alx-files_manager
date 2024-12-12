@@ -1,63 +1,37 @@
-import express from 'express';
-import AppController from '../controllers/AppController';
-import UsersController from '../controllers/UsersController';
-import AuthController from '../controllers/AuthController';
-import FilesController from '../controllers/FilesController';
+import { Router } from 'express';  // Import the Router function from Express to define routes
+import AppController from '../controllers/AppController';  // Import the AppController for app-related functionality
+import UsersController from '../controllers/UsersController';  // Import the UsersController for handling user-related routes
+import AuthController from '../controllers/AuthController';  // Import the AuthController for handling authentication routes
+import FilesController from '../controllers/FilesController';  // Import the FilesController for file-related routes
 
-const router = express.Router();
+const router = Router();  // Initialize a new Express Router instance
 
-const routeController = (app) => {
-  app.use('/', router);
+// **AppController endpoints** - These handle application status and statistics
+router.get('/status', AppController.getStatus);  // Endpoint to check the status of the application
+router.get('/stats', AppController.getStats);  // Endpoint to get application statistics
 
-  // App Controller
-  router.get('/status', (req, res) => {
-    AppController.getStatus(req, res);
-  });
+// **UsersController endpoints** - These handle user-related actions
+router.post('/users', UsersController.postNew);  // Endpoint to create a new user
 
-  router.get('/stats', (req, res) => {
-    AppController.getStats(req, res);
-  });
+// **AuthController endpoints** - These handle user authentication actions
+router.get('/connect', AuthController.getConnect);  // Endpoint for user login/connect
+router.get('/disconnect', AuthController.getDisconnect);  // Endpoint for user logout/disconnect
 
-  router.post('/users', (req, res) => {
-    UsersController.postNew(req, res);
-  });
+// **UsersController endpoint for retrieving current user data**
+router.get('/users/me', UsersController.getMe);  // Endpoint to get the current logged-in user's data
 
-  router.get('/connect', (req, res) => {
-    AuthController.getConnect(req, res);
-  });
+// **FilesController endpoints** - These handle file upload and file-related actions
+router.post('/files', FilesController.postUpload);  // Endpoint to upload a file
 
-  router.get('/disconnect', (req, res) => {
-    AuthController.getDisconnect(req, res);
-  });
+router.get('/files/:id', FilesController.getShow);  // Endpoint to get information about a specific file by its ID
+router.get('/files', FilesController.getIndex);  // Endpoint to list all files
 
-  router.get('/users/me', (req, res) => {
-    UsersController.getMe(req, res);
-  });
+// **FilesController endpoints for publishing and unpublishing files**
+router.put('/files/:id/publish', FilesController.putPublish);  // Endpoint to publish a specific file
+router.put('/files/:id/unpublish', FilesController.putUnpublish);  // Endpoint to unpublish a specific file
 
-  router.post('/files', (req, res) => {
-    FilesController.postUpload(req, res);
-  });
+// **File data endpoint** - This handles file data retrieval
+router.get('/files/:id/data', FilesController.getFile);  // Endpoint to retrieve the actual data of a specific file
 
-  router.get('/files/:id', (req, res) => {
-    FilesController.getShow(req, res);
-  });
-
-  router.get('/files', (req, res) => {
-    FilesController.getIndex(req, res);
-  });
-
-  router.put('/files/:id/publish', (req, res) => {
-    FilesController.putPublish(req, res);
-  });
-
-  router.put('/files/:id/unpublish', (req, res) => {
-    FilesController.putUnpublish(req, res);
-  });
-
-  router.post('/files/:id/data', (req, res) => {
-    FilesController.getFile(req, res);
-  });
-};
-
-export default routeController;
-
+// Export the router so it can be used in the main app
+export default router;
