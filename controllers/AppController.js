@@ -1,3 +1,4 @@
+// AppController.js
 import redisClient from '../utils/redis'; // Import Redis client utility for health checks
 import dbClient from '../utils/db'; // Import database client utility for interacting with the database
 
@@ -15,4 +16,5 @@ class AppController {
   }
 }
 
-module.exports = AppController; // Export the AppController class
+// Export using ES6 syntax
+export default AppController;
